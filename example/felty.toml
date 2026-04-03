@@ -1,0 +1,62 @@
+[app]
+# アプリケーションのID (必須)
+id = "com.ktnfm.felty.example"
+# アプリケーションの表示名 (必須)
+name = "Felty Example App"
+# バージョン情報 (必須)
+version = "0.1.0"
+# 開発者・会社名 (任意)
+author = "Kotone Fami"
+# コピーライト (任意)
+copyright = "Copyright © 2026 Kotone Fami All Rights Reserved."
+# 内部的なシステム名・プロセス名 (任意)
+internal_name = "felty-example"
+# コメント (任意)
+comments = "file comments"
+# アプリアイコンのパス (任意)
+icon_path = "icon.ico"
+
+[window]
+# ウィンドウの初期幅
+width = 800.0
+# ウィンドウの初期高さ
+height = 600.0
+# ウィンドウのサイズ変更を許可するかどうか
+resizable = true
+# ウィンドウの最大化を許可するかどうか
+maximizable = true
+
+[internal]
+# Felty が使用する WebView/WebKit では、カスタムプロトコルの挙動に違いがあります:
+# - http://protocol.tld/ (Windows)
+# - protocol://tld/ (Windows)
+# - protocol://host/ (macOS/Linux)
+# 以下の設定は、これらを記述するものです。
+# カスタムプロトコルのスキーム名
+protocol = "internal-app"
+# Windows 環境でのベースドメイン
+tld = "tld"
+# macOS / Linux 環境でのベースホスト名
+host = "host"
+# 内部の別パッケージのリソースにアクセスするためのパスの接頭辞
+package_prefix = "@packages/"
+# 開発環境（Vite等）の待ち受けポート番号
+dev_port = 5173
+# フロントエンド等のメインランタイムとなるパッケージ名
+runtime_package = "Example.Runtime.pak"
+# アセット等を提供するパッケージ名
+assets_package = "Example.Assets.pak"
+# セーブデータの保存ディレクトリ
+save_directory = "Save"
+# アセットの保存ディレクトリ
+assets_directory = "Data/Assets"
+# ログファイルの保存ディレクトリ
+log_directory = "Data/Logs"
+# キャッシュファイルの保存ディレクトリ
+cache_directory = "Data/Caches"
+# アプリケーションのウェブサイトURL
+website_url = "https://example.com"
+# リリースノートのURL
+release_note_url = "https://example.com/release-notes"
+# バグ報告のURL
+report_url = "https://example.com/bug-report"

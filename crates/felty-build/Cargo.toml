@@ -1,0 +1,17 @@
+[package]
+name = "felty-build"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kotone Fami <fami@ktnfm.com>"]
+description = "Build script utilities for felty"
+license = "MIT"
+
+[dependencies]
+icns = "0.3.1"
+ico-builder = "0.1.1"
+image = "0.25.5"
+semver = "1.0.26"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.2"
+winapi = { version = "0.3.9", features = ["winnt"] }
+winresource = "0.1.23"
