@@ -18,6 +18,10 @@ pub struct FeltyApp {
     custom_protocol_hook: Option<ProtocolHookFn>,
     menu_event_hook: Option<Arc<dyn Fn(&str) -> bool + Send + Sync>>,
     before_run_hook: Option<Box<dyn FnOnce(&crate::config::AppConfig)>>,
+    /// アプリケーションの起動時に最初に読み込む URL
+    start_url: Option<String>,
+    /// 内部プロトコルのみにナビゲーションを制限するかどうか
+    is_internal_navigation_only: bool,
 }
 
 impl FeltyApp {
@@ -27,6 +31,8 @@ impl FeltyApp {
             custom_protocol_hook: None,
             menu_event_hook: None,
             before_run_hook: None,
+            start_url: None,
+            is_internal_navigation_only: true,
         }
     }
 
@@ -51,6 +57,19 @@ impl FeltyApp {
         F: FnOnce(&crate::config::AppConfig) + 'static,
     {
         self.before_run_hook = Some(Box::new(f));
+        self
+    }
+
+    /// アプリケーションの起動時に最初に読み込む URL を指定します。
+    /// None に設定した場合、ランタイムパッケージの index.html が読み込まれます。
+    pub fn with_start_url<S: Into<String>>(mut self, url: Option<S>) -> Self {
+        self.start_url = url.map(Into::into);
+        self
+    }
+
+    /// 内部プロトコルのみにナビゲーションを制限するかどうかを指定します。
+    pub fn with_internal_navigation_only(mut self, enabled: bool) -> Self {
+        self.is_internal_navigation_only = enabled;
         self
     }
 
@@ -90,8 +109,13 @@ impl FeltyApp {
 
         let custom_protocol_hook = self.custom_protocol_hook.clone();
 
+        let start_url = self.start_url.clone().unwrap_or_else(|| {
+            to_custom_protocol_path(&self.config.runtime_package, "index.html")
+        });
+        let is_internal_navigation_only = self.is_internal_navigation_only;
+
         let webview = WebViewBuilder::with_attributes(attributes)
-            .with_url(to_custom_protocol_path(&self.config.runtime_package, "index.html"))
+            .with_url(start_url)
             .with_autoplay(true)
             .with_accept_first_mouse(true)
             .with_incognito(true)
@@ -101,12 +125,16 @@ impl FeltyApp {
             .with_hotkeys_zoom(false)
             .with_new_window_req_handler(|_| false)
             .with_download_started_handler(|_, _| false)
-            .with_navigation_handler(|url| {
-                let global_config = crate::config::get_global();
-                to_package_and_path(&url.to_owned()).is_some_and(|(package, path)| {
-                    log::debug!("Navigation requested: {}/{}", package, path);
-                    package == global_config.runtime_package
-                })
+            .with_navigation_handler(move |url| {
+                if is_internal_navigation_only {
+                    let global_config = crate::config::get_global();
+                    to_package_and_path(&url).is_some_and(|(package, path)| {
+                        log::debug!("Navigation requested: {}/{}", package, path);
+                        package == global_config.runtime_package
+                    })
+                } else {
+                    true
+                }
             })
             .with_asynchronous_custom_protocol(self.config.internal_protocol.clone(), move |_ctx, request, responder| {
                 if let Some(hook) = &custom_protocol_hook {
