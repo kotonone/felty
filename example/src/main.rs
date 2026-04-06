@@ -12,6 +12,16 @@ async fn main() {
     app::setup_log(&config);
 
     app::FeltyApp::new(config)
+        .on_setup(|app_handle| {
+            let handle_clone = app_handle.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                let _ = handle_clone.evaluate_script("console.log('Hello from Rust background thread!');");
+                let _ = handle_clone.dispatch(|webview| {
+                    let _ = webview.zoom(1.5);
+                });
+            });
+        })
         .on_before_run(|config| {
             core::process_waiting();
             core::process_cleaning(&config.cache_directory);

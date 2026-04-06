@@ -6,9 +6,30 @@ use super::protocol::{respond, to_custom_protocol_path, to_package_and_path};
 use tao::{event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, window::WindowBuilder};
 use wry::{WebContext, WebViewAttributes, WebViewBuilder};
 
-#[derive(Debug)]
 pub enum FeltyEvents {
     MenuEvent(String),
+    Dispatch(Box<dyn FnOnce(&wry::WebView) + Send + 'static>),
+}
+
+#[derive(Clone)]
+pub struct AppHandle {
+    proxy: tao::event_loop::EventLoopProxy<FeltyEvents>,
+}
+
+impl AppHandle {
+    pub fn dispatch<F>(&self, f: F) -> Result<(), ()>
+    where
+        F: FnOnce(&wry::WebView) + Send + 'static,
+    {
+        self.proxy.send_event(FeltyEvents::Dispatch(Box::new(f))).map_err(|_| ())
+    }
+
+    pub fn evaluate_script(&self, script: impl Into<String>) -> Result<(), ()> {
+        let script = script.into();
+        self.dispatch(move |webview| {
+            let _ = webview.evaluate_script(&script);
+        })
+    }
 }
 
 pub type ProtocolHookFn = Arc<dyn Fn(http::Request<Vec<u8>>, wry::RequestAsyncResponder) -> Result<(), (http::Request<Vec<u8>>, wry::RequestAsyncResponder)> + Send + Sync>;
@@ -18,6 +39,7 @@ pub struct FeltyApp {
     custom_protocol_hook: Option<ProtocolHookFn>,
     menu_event_hook: Option<Arc<dyn Fn(&str) -> bool + Send + Sync>>,
     before_run_hook: Option<Box<dyn FnOnce(&crate::config::AppConfig)>>,
+    setup_hook: Option<Box<dyn FnOnce(AppHandle)>>,
     /// アプリケーションの起動時に最初に読み込む URL
     start_url: Option<String>,
     /// 内部プロトコルのみにナビゲーションを制限するかどうか
@@ -31,6 +53,7 @@ impl FeltyApp {
             custom_protocol_hook: None,
             menu_event_hook: None,
             before_run_hook: None,
+            setup_hook: None,
             start_url: None,
             is_internal_navigation_only: true,
         }
@@ -60,6 +83,14 @@ impl FeltyApp {
         self
     }
 
+    pub fn on_setup<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(AppHandle) + 'static,
+    {
+        self.setup_hook = Some(Box::new(f));
+        self
+    }
+
     /// アプリケーションの起動時に最初に読み込む URL を指定します。
     /// None に設定した場合、ランタイムパッケージの index.html が読み込まれます。
     pub fn with_start_url<S: Into<String>>(mut self, url: Option<S>) -> Self {
@@ -79,6 +110,13 @@ impl FeltyApp {
         }
 
         let event_loop = EventLoopBuilder::<FeltyEvents>::with_user_event().build();
+
+        let proxy = event_loop.create_proxy();
+        let app_handle = AppHandle { proxy: proxy.clone() };
+
+        if let Some(hook) = self.setup_hook {
+            hook(app_handle);
+        }
 
         if cfg!(target_os = "macos") {
             use muda::MenuEvent;
@@ -195,6 +233,9 @@ impl FeltyApp {
                     *control_flow = ControlFlow::Exit;
                 },
                 Event::UserEvent(user_event) => match user_event {
+                    FeltyEvents::Dispatch(f) => {
+                        f(&webview);
+                    }
                     FeltyEvents::MenuEvent(id) => {
                         let mut continue_default = true;
                         if let Some(hook) = &menu_hook {
