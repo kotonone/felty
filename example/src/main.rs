@@ -10,7 +10,6 @@ fn main() {
     let (config, icon) = load_config!();
     app::setup_log();
 
-    core::process_waiting();
     core::process_cleaning(&config.cache_directory);
     core::check_webview(&config.webview_install_url);
 
