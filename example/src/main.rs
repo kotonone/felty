@@ -4,8 +4,7 @@
 use felty::*;
 use felty::app::Responder;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     core::set_current_dir();
 
     let (config, icon) = load_config!();
