@@ -55,6 +55,8 @@ pub struct FeltyApp {
     menu_event_hook: Option<Arc<dyn Fn(&str) -> bool + Send + Sync>>,
     before_run_hook: Option<Box<dyn FnOnce()>>,
     setup_hook: Option<Box<dyn FnOnce(AppHandle)>>,
+    /// アプリケーションの起動時に最初に読み込む HTML
+    start_html: Option<String>,
     /// アプリケーションの起動時に最初に読み込む URL
     start_url: Option<String>,
     /// 内部プロトコルのみにナビゲーションを制限するかどうか
@@ -74,6 +76,7 @@ impl FeltyApp {
             menu_event_hook: None,
             before_run_hook: None,
             setup_hook: None,
+            start_html: None,
             start_url: None,
             is_internal_navigation_only: true,
         }
@@ -141,8 +144,15 @@ impl FeltyApp {
         self
     }
 
+    /// アプリケーションの起動時に最初に読み込む HTML を指定します。
+    /// start_url より優先されます。start_html および start_url の両方を None にした場合、ランタイムパッケージの index.html が読み込まれます。
+    pub fn with_start_html<S: Into<String>>(mut self, html: Option<S>) -> Self {
+        self.start_html = html.map(Into::into);
+        self
+    }
+
     /// アプリケーションの起動時に最初に読み込む URL を指定します。
-    /// None に設定した場合、ランタイムパッケージの index.html が読み込まれます。
+    /// start_html および start_url の両方を None にした場合、ランタイムパッケージの index.html が読み込まれます。
     pub fn with_start_url<S: Into<String>>(mut self, url: Option<S>) -> Self {
         self.start_url = url.map(Into::into);
         self
@@ -200,10 +210,10 @@ impl FeltyApp {
         let start_url = self.start_url.clone().unwrap_or_else(|| {
             to_custom_protocol_path(&self.config.runtime_package, "index.html")
         });
+        let is_first_page_html = self.start_html.is_some();
         let is_internal_navigation_only = self.is_internal_navigation_only;
 
         let webview_builder = WebViewBuilder::with_attributes(attributes)
-            .with_url(start_url)
             .with_autoplay(true)
             .with_accept_first_mouse(true)
             .with_incognito(true)
@@ -214,15 +224,20 @@ impl FeltyApp {
             .with_new_window_req_handler(|_| false)
             .with_download_started_handler(|_, _| false)
             .with_navigation_handler(move |url| {
-                if is_internal_navigation_only {
-                    let global_config = crate::config::get_global();
-                    to_package_and_path(&url).is_some_and(|(package, path)| {
-                        log::debug!("Navigation requested: {}/{}", package, path);
-                        package == global_config.runtime_package
-                    })
-                } else {
-                    true
+                // NOTE: 内部プロトコル以外へのナビゲーションが明示的に許可されている場合は、すべてのナビゲーションを許可する
+                if !is_internal_navigation_only {
+                    return true;
                 }
+                // NOTE: 最初のページが HTML 文字列の場合、Data URL へのナビゲーションは許可する
+                if is_first_page_html && url.starts_with("data:text/html") {
+                    return true;
+                }
+
+                let global_config = crate::config::get_global();
+                to_package_and_path(&url).is_some_and(|(package, path)| {
+                    log::debug!("Navigation requested: {}/{}", package, path);
+                    package == global_config.runtime_package
+                })
             })
             .with_asynchronous_custom_protocol(self.config.internal_protocol.clone(), move |_ctx, request, responder| {
                 if let Some(hook) = &custom_protocol_hook {
@@ -236,8 +251,15 @@ impl FeltyApp {
                     tokio::spawn(respond(request, responder));
                 }
             });
+
+        let webview_builder = if let Some(start_html) = self.start_html {
+            webview_builder.with_html(&start_html)
+        } else {
+            webview_builder.with_url(&start_url)
+        };
         #[cfg(windows)]
         let webview_builder = webview_builder.with_https_scheme(true);
+
         let webview = webview_builder.build(&window).unwrap();
 
         #[cfg(debug_assertions)]
