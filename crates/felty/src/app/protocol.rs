@@ -70,15 +70,18 @@ pub fn to_package_and_path(url: &str) -> Option<(String, String)> {
     let config = crate::config::get_global();
 
     // NOTE: OS や wry のバージョンによって渡される URL の形式が異なるため、以下の3パターンをすべて許容する
-    // 1. http://protocol.tld/ (Windows の古いフォールバック)
+    // 1. http(s)://protocol.tld/ (Windows の古いフォールバック)
     // 2. protocol://tld/ (Windows のカスタムプロトコル)
     // 3. protocol://host/ (macOS 等のカスタムプロトコル)
     let prefix_windows_http = format!("http://{}.{}/", config.internal_protocol, config.internal_tld);
+    let prefix_windows_https = format!("https://{}.{}/", config.internal_protocol, config.internal_tld);
     let prefix_windows_custom = format!("{}://{}/", config.internal_protocol, config.internal_tld);
     let prefix_macos = format!("{}://{}/", config.internal_protocol, config.internal_host);
 
     let path_part = if url.starts_with(&prefix_windows_http) {
         &url[prefix_windows_http.len()..]
+    } else if url.starts_with(&prefix_windows_https) {
+        &url[prefix_windows_https.len()..]
     } else if url.starts_with(&prefix_windows_custom) {
         &url[prefix_windows_custom.len()..]
     } else if url.starts_with(&prefix_macos) {
