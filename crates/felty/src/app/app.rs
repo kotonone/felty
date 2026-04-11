@@ -7,6 +7,9 @@ use muda::Menu;
 use tao::{dpi::LogicalSize, event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, window::{Icon, WindowBuilder}};
 use wry::{WebContext, WebViewAttributes, WebViewBuilder};
 
+#[cfg(windows)]
+use wry::WebViewBuilderExtWindows;
+
 pub enum FeltyEvents {
     MenuEvent(String),
     Dispatch(Box<dyn FnOnce(&wry::WebView) + Send + 'static>),
@@ -199,7 +202,7 @@ impl FeltyApp {
         });
         let is_internal_navigation_only = self.is_internal_navigation_only;
 
-        let webview = WebViewBuilder::with_attributes(attributes)
+        let webview_builder = WebViewBuilder::with_attributes(attributes)
             .with_url(start_url)
             .with_autoplay(true)
             .with_accept_first_mouse(true)
@@ -232,9 +235,10 @@ impl FeltyApp {
                 } else {
                     tokio::spawn(respond(request, responder));
                 }
-            })
-            .build(&window)
-            .unwrap();
+            });
+        #[cfg(windows)]
+        let webview_builder = webview_builder.with_https_scheme(true);
+        let webview = webview_builder.build(&window).unwrap();
 
         #[cfg(debug_assertions)]
         webview.open_devtools();
