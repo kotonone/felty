@@ -18,15 +18,12 @@ icon_path = "icon.ico"
 
 [internal]
 # Felty が使用する WebView/WebKit では、カスタムプロトコルの挙動に違いがあります:
-# - http://protocol.tld/ (Windows)
-# - protocol://tld/ (Windows)
-# - protocol://host/ (macOS/Linux)
+# - http(s)://protocol.tld/ (Windows)
+# - protocol://host/ (Windows/macOS/Linux)
 # 以下の設定は、これらを記述するものです。
 # カスタムプロトコルのスキーム名
 protocol = "internal-app"
-# Windows 環境でのベースドメイン
-tld = "tld"
-# macOS / Linux 環境でのベースホスト名
+# カスタムプロトコルのホスト名
 host = "host"
 # 内部の別パッケージのリソースにアクセスするためのパスの接頭辞
 package_prefix = "@packages/"

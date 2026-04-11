@@ -60,7 +60,6 @@ impl Default for WebviewConfigSection {
 #[serde(default)]
 pub struct InternalConfigSection {
     pub protocol: String,
-    pub tld: String,
     pub host: String,
     pub dev_server: String,
     pub package_prefix: String,
@@ -79,7 +78,6 @@ impl Default for InternalConfigSection {
     fn default() -> Self {
         Self {
             protocol: "felty".into(),
-            tld: "tld".into(),
             host: "host".into(),
             dev_server: "http://localhost:5173".into(),
             package_prefix: "/@packages/".into(),
@@ -141,7 +139,6 @@ pub fn build<P: AsRef<Path>>(toml_path: P) {
         version: "{version}".to_string(),
         webview_install_url: "{webview_url}".to_string(),
         internal_protocol: "{protocol}".to_string(),
-        internal_tld: "{tld}".to_string(),
         internal_host: "{host}".to_string(),
         dev_server: "{dev_server}".to_string(),
         package_prefix: "{package_prefix}".to_string(),
@@ -164,7 +161,6 @@ pub fn build<P: AsRef<Path>>(toml_path: P) {
         webview_url = config.webview.install_url,
         icon_code = icon_code,
         protocol = config.internal.protocol,
-        tld = config.internal.tld,
         host = config.internal.host,
         dev_server = config.internal.dev_server,
         package_prefix = config.internal.package_prefix,

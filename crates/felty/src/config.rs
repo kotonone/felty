@@ -7,7 +7,6 @@ pub struct GlobalConfig {
     pub version: String,
     pub webview_install_url: String,
     pub internal_protocol: String,
-    pub internal_tld: String,
     pub internal_host: String,
     pub dev_server: String,
     pub package_prefix: String,

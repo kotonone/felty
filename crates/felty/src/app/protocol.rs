@@ -70,22 +70,18 @@ pub fn to_package_and_path(url: &str) -> Option<(String, String)> {
     let config = crate::config::get_global();
 
     // NOTE: OS や wry のバージョンによって渡される URL の形式が異なるため、以下の3パターンをすべて許容する
-    // 1. http(s)://protocol.tld/ (Windows の古いフォールバック)
-    // 2. protocol://tld/ (Windows のカスタムプロトコル)
-    // 3. protocol://host/ (macOS 等のカスタムプロトコル)
-    let prefix_windows_http = format!("http://{}.{}/", config.internal_protocol, config.internal_tld);
-    let prefix_windows_https = format!("https://{}.{}/", config.internal_protocol, config.internal_tld);
-    let prefix_windows_custom = format!("{}://{}/", config.internal_protocol, config.internal_tld);
-    let prefix_macos = format!("{}://{}/", config.internal_protocol, config.internal_host);
+    // 1. http(s)://protocol.host/ (Windows のフォールバック)
+    // 2. protocol://host/ (カスタムプロトコル)
+    let prefix_windows_http = format!("http://{}.{}/", config.internal_protocol, config.internal_host);
+    let prefix_windows_https = format!("https://{}.{}/", config.internal_protocol, config.internal_host);
+    let prefix_custom_protocol = format!("{}://{}/", config.internal_protocol, config.internal_host);
 
     let path_part = if url.starts_with(&prefix_windows_http) {
         &url[prefix_windows_http.len()..]
     } else if url.starts_with(&prefix_windows_https) {
         &url[prefix_windows_https.len()..]
-    } else if url.starts_with(&prefix_windows_custom) {
-        &url[prefix_windows_custom.len()..]
-    } else if url.starts_with(&prefix_macos) {
-        &url[prefix_macos.len()..]
+    } else if url.starts_with(&prefix_custom_protocol) {
+        &url[prefix_custom_protocol.len()..]
     } else {
         return None;
     };
@@ -116,21 +112,15 @@ pub fn to_package_and_path(url: &str) -> Option<(String, String)> {
 
 /// パッケージおよびパスを、カスタムプロトコルを使用した URL に変換します。
 ///
-/// `to_package_and_path` の逆の処理を行いますが、生成する URL はプラットフォームに応じた正しいベース URL に統一します。
+/// `to_package_and_path` の逆の処理を行います。
 ///
-/// - Windows でランタイムパッケージ: `protocol://tld/index.html`
-/// - Windows で別パッケージ: `protocol://tld/package_prefix/Assets.pak/img.png`
-/// - macOS でランタイムパッケージ: `protocol://host/index.html`
-/// - macOS で別パッケージ: `protocol://host/package_prefix/Assets.pak/img.png`
+/// - ランタイムパッケージ: `protocol://host/index.html`
+/// - 別パッケージ: `protocol://host/package_prefix/Assets.pak/img.png`
 pub fn to_custom_protocol_path(package: &str, path: &str) -> String {
     let config = crate::config::get_global();
 
-    // NOTE: Windows WebView2 では `protocol://tld`、macOS WebKit では `protocol://host` をベース URL に設定
-    let base = if cfg!(target_os = "windows") {
-        format!("{}://{}", config.internal_protocol, config.internal_tld)
-    } else {
-        format!("{}://{}", config.internal_protocol, config.internal_host)
-    };
+    // NOTE: `protocol://host` をベース URL に設定
+    let base = format!("{}://{}", config.internal_protocol, config.internal_host);
 
     let clean_path = if path.starts_with('/') { &path[1..] } else { path };
     if package == config.runtime_package {
