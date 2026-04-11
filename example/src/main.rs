@@ -9,7 +9,7 @@ async fn main() {
     core::set_current_dir();
 
     let config = load_config!();
-    app::setup_log(&config);
+    app::setup_log();
 
     app::FeltyApp::new(config)
         .on_setup(|app_handle| {

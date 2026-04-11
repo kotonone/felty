@@ -4,6 +4,8 @@ use log::{Level, LevelFilter, Log};
 
 use time::OffsetDateTime;
 
+use crate::config::get_global;
+
 struct FeltyLogger {
     file: Option<Mutex<File>>,
 }
@@ -88,16 +90,17 @@ impl Log for FeltyLogger {
 
 static LOGGER: OnceLock<FeltyLogger> = OnceLock::new();
 
-pub fn setup_log(config: &crate::config::AppConfig) {
-    let log_directory = config.log_directory.clone();
-    let _ = fs::create_dir_all(&log_directory);
+pub fn setup_log() {
+    let config = get_global();
 
-    let logger = LOGGER.get_or_init(|| FeltyLogger::new(&log_directory));
+    let _ = fs::create_dir_all(&config.log_directory);
+
+    let logger = LOGGER.get_or_init(|| FeltyLogger::new(&config.log_directory));
     log::set_logger(logger).unwrap();
     log::set_max_level(LevelFilter::max());
 
     // NOTE: 古いログを削除する
-    if let Ok(dir) = fs::read_dir(&log_directory) {
+    if let Ok(dir) = fs::read_dir(&config.log_directory) {
         let entry_results = dir.filter_map(|result| {
             if let Ok(entry) = result {
                 if entry.metadata().is_ok_and(|d| d.len() == 0) {
@@ -116,7 +119,7 @@ pub fn setup_log(config: &crate::config::AppConfig) {
 
         if entry_results.len() > 10 {
             for entry_result in &entry_results[..entry_results.len() - 10] {
-                let _ = fs::remove_file(PathBuf::new().join(&log_directory).join(entry_result));
+                let _ = fs::remove_file(PathBuf::new().join(&config.log_directory).join(entry_result));
             }
         }
     }
@@ -144,6 +147,5 @@ pub fn setup_log(config: &crate::config::AppConfig) {
         }
     }));
 
-    log::info!("{} (v{}) on Felty", config.name, config.version);
-    log::info!("Version: {}/{}", config.name, config.version);
+    log::info!("{} (v{})", config.name, config.version);
 }
