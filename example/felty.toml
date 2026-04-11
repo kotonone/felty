@@ -16,16 +16,6 @@ comments = "file comments"
 # アプリアイコンのパス (任意)
 icon_path = "icon.ico"
 
-[window]
-# ウィンドウの初期幅
-width = 800.0
-# ウィンドウの初期高さ
-height = 600.0
-# ウィンドウのサイズ変更を許可するかどうか
-resizable = true
-# ウィンドウの最大化を許可するかどうか
-maximizable = true
-
 [internal]
 # Felty が使用する WebView/WebKit では、カスタムプロトコルの挙動に違いがあります:
 # - http://protocol.tld/ (Windows)

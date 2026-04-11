@@ -8,10 +8,15 @@ use felty::app::Responder;
 async fn main() {
     core::set_current_dir();
 
-    let config = load_config!();
+    let (config, icon) = load_config!();
     app::setup_log();
 
+    core::process_waiting();
+    core::process_cleaning(&config.cache_directory);
+    core::check_webview(&config.webview_install_url);
+
     app::FeltyApp::new(config)
+        .with_icon(icon)
         .on_setup(|app_handle| {
             let handle_clone = app_handle.clone();
             std::thread::spawn(move || {
@@ -22,12 +27,8 @@ async fn main() {
                 });
             });
         })
-        .on_before_run(|config| {
-            core::process_waiting();
-            core::process_cleaning(&config.cache_directory);
-            core::check_webview(&config.webview_install_url);
+        .on_before_run(|| {
             // 独自のアップデートチェック処理など
-            println!("Before run hook executed.");
         })
         .on_custom_protocol_request(|request, responder| {
             // カスタムプロトコルのインターセプト（アセット復号など）

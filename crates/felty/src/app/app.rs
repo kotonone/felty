@@ -1,9 +1,10 @@
 use std::{path::PathBuf, process, env, sync::Arc};
 
-use crate::util::open;
+use crate::{config::{GlobalConfig, get_global}, util::open};
 use super::protocol::{respond, to_custom_protocol_path, to_package_and_path};
 
-use tao::{event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, window::WindowBuilder};
+use muda::Menu;
+use tao::{dpi::LogicalSize, event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, window::{Icon, WindowBuilder}};
 use wry::{WebContext, WebViewAttributes, WebViewBuilder};
 
 pub enum FeltyEvents {
@@ -35,10 +36,21 @@ impl AppHandle {
 pub type ProtocolHookFn = Arc<dyn Fn(http::Request<Vec<u8>>, wry::RequestAsyncResponder) -> Result<(), (http::Request<Vec<u8>>, wry::RequestAsyncResponder)> + Send + Sync>;
 
 pub struct FeltyApp {
-    config: crate::config::AppConfig,
+    /// アプリケーションの設定
+    config: GlobalConfig,
+    /// ウィンドウのサイズ
+    size: LogicalSize<f64>,
+    /// ウィンドウのリサイズを許可するかどうか
+    resizable: bool,
+    /// ウィンドウの最大化を許可するかどうか
+    maximizable: bool,
+    /// アプリケーションのアイコン
+    icon: Option<Icon>,
+    /// アプリケーションのメニュー
+    menu: Option<Menu>,
     custom_protocol_hook: Option<ProtocolHookFn>,
     menu_event_hook: Option<Arc<dyn Fn(&str) -> bool + Send + Sync>>,
-    before_run_hook: Option<Box<dyn FnOnce(&crate::config::AppConfig)>>,
+    before_run_hook: Option<Box<dyn FnOnce()>>,
     setup_hook: Option<Box<dyn FnOnce(AppHandle)>>,
     /// アプリケーションの起動時に最初に読み込む URL
     start_url: Option<String>,
@@ -47,9 +59,14 @@ pub struct FeltyApp {
 }
 
 impl FeltyApp {
-    pub fn new(config: crate::config::AppConfig) -> Self {
+    pub fn new(config: GlobalConfig) -> Self {
         Self {
             config,
+            size: LogicalSize::new(1280.0, 800.0),
+            resizable: true,
+            maximizable: true,
+            icon: None,
+            menu: None,
             custom_protocol_hook: None,
             menu_event_hook: None,
             before_run_hook: None,
@@ -77,7 +94,7 @@ impl FeltyApp {
 
     pub fn on_before_run<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(&crate::config::AppConfig) + 'static,
+        F: FnOnce() + 'static,
     {
         self.before_run_hook = Some(Box::new(f));
         self
@@ -88,6 +105,36 @@ impl FeltyApp {
         F: FnOnce(AppHandle) + 'static,
     {
         self.setup_hook = Some(Box::new(f));
+        self
+    }
+
+    /// ウィンドウのサイズを指定します。
+    pub fn with_size(mut self, width: f64, height: f64) -> Self {
+        self.size = LogicalSize::new(width, height);
+        self
+    }
+
+    /// ウィンドウのリサイズを許可するかどうかを指定します。
+    pub fn with_resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
+        self
+    }
+
+    /// ウィンドウの最大化を許可するかどうかを指定します。
+    pub fn with_maximizable(mut self, maximizable: bool) -> Self {
+        self.maximizable = maximizable;
+        self
+    }
+
+    /// アプリケーションのアイコンを指定します。
+    pub fn with_icon(mut self, icon: Option<Icon>) -> Self {
+        self.icon = icon;
+        self
+    }
+
+    /// アプリケーションのメニューを指定します。
+    pub fn with_menu(mut self, menu: Option<Menu>) -> Self {
+        self.menu = menu;
         self
     }
 
@@ -106,7 +153,7 @@ impl FeltyApp {
 
     pub fn run(self) {
         if let Some(hook) = self.before_run_hook {
-            hook(&self.config);
+            hook();
         }
 
         let event_loop = EventLoopBuilder::<FeltyEvents>::with_user_event().build();
@@ -122,7 +169,7 @@ impl FeltyApp {
             use muda::MenuEvent;
 
             #[cfg(target_os = "macos")]
-            if let Some(menu) = &self.config.menu {
+            if let Some(menu) = &self.menu {
                 menu.init_for_nsapp();
             }
 
@@ -138,10 +185,10 @@ impl FeltyApp {
 
         let window = WindowBuilder::new()
             .with_title(&self.config.name)
-            .with_inner_size(self.config.window_size)
-            .with_resizable(self.config.resizable)
-            .with_maximizable(self.config.maximizable)
-            .with_window_icon(self.config.icon.clone())
+            .with_inner_size(self.size)
+            .with_resizable(self.resizable)
+            .with_maximizable(self.maximizable)
+            .with_window_icon(self.icon.clone())
             .build(&event_loop)
             .unwrap();
 
@@ -262,6 +309,7 @@ impl FeltyApp {
     }
 }
 
-pub fn run(config: crate::config::AppConfig) {
-    FeltyApp::new(config).run();
+pub fn run() {
+    let config = get_global();
+    FeltyApp::new(config.clone()).run();
 }

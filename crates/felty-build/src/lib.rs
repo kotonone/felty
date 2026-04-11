@@ -11,8 +11,6 @@ pub struct FeltyToml {
     #[serde(default)]
     pub app: AppConfigSection,
     #[serde(default)]
-    pub window: WindowConfigSection,
-    #[serde(default)]
     pub webview: WebviewConfigSection,
     #[serde(default)]
     pub internal: InternalConfigSection,
@@ -42,26 +40,6 @@ impl Default for AppConfigSection {
             internal_name: None,
             comments: None,
             icon_path: None,
-        }
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(default)]
-pub struct WindowConfigSection {
-    pub width: f64,
-    pub height: f64,
-    pub resizable: bool,
-    pub maximizable: bool,
-}
-
-impl Default for WindowConfigSection {
-    fn default() -> Self {
-        Self {
-            width: 1280.0,
-            height: 800.0,
-            resizable: true,
-            maximizable: true,
         }
     }
 }
@@ -156,40 +134,33 @@ pub fn build<P: AsRef<Path>>(toml_path: P) {
 
     // 2. Generate config rust code
     let generated_code = format!(
-        r#"
-::felty::config::AppConfig {{
-    id: "{id}".to_string(),
-    name: "{name}".to_string(),
-    version: "{version}".to_string(),
-    window_size: ::felty::tao::dpi::LogicalSize::new({width}f64, {height}f64),
-    resizable: {resizable},
-    maximizable: {maximizable},
-    webview_install_url: "{webview_url}".to_string(),
-    icon: {icon_code},
-    menu: None,
-    internal_protocol: "{protocol}".to_string(),
-    internal_tld: "{tld}".to_string(),
-    internal_host: "{host}".to_string(),
-    dev_server: "{dev_server}".to_string(),
-    package_prefix: "{package_prefix}".to_string(),
-    runtime_package: "{runtime_package}".to_string(),
-    assets_package: "{assets_package}".to_string(),
-    save_directory: "{save_directory}".to_string(),
-    assets_directory: "{assets_directory}".to_string(),
-    log_directory: "{log_directory}".to_string(),
-    cache_directory: "{cache_directory}".to_string(),
-    website_url: "{website_url}".to_string(),
-    release_note_url: "{release_note_url}".to_string(),
-    report_url: "{report_url}".to_string(),
-}}
+        r#"(
+    ::felty::config::GlobalConfig {{
+        id: "{id}".to_string(),
+        name: "{name}".to_string(),
+        version: "{version}".to_string(),
+        webview_install_url: "{webview_url}".to_string(),
+        internal_protocol: "{protocol}".to_string(),
+        internal_tld: "{tld}".to_string(),
+        internal_host: "{host}".to_string(),
+        dev_server: "{dev_server}".to_string(),
+        package_prefix: "{package_prefix}".to_string(),
+        runtime_package: "{runtime_package}".to_string(),
+        assets_package: "{assets_package}".to_string(),
+        save_directory: "{save_directory}".to_string(),
+        assets_directory: "{assets_directory}".to_string(),
+        log_directory: "{log_directory}".to_string(),
+        cache_directory: "{cache_directory}".to_string(),
+        website_url: "{website_url}".to_string(),
+        release_note_url: "{release_note_url}".to_string(),
+        report_url: "{report_url}".to_string(),
+    }},
+    {icon_code}
+)
         "#,
         id = config.app.id,
         name = config.app.name,
         version = config.app.version,
-        width = config.window.width,
-        height = config.window.height,
-        resizable = config.window.resizable,
-        maximizable = config.window.maximizable,
         webview_url = config.webview.install_url,
         icon_code = icon_code,
         protocol = config.internal.protocol,
