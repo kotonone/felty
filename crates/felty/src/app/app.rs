@@ -1,10 +1,10 @@
-use std::{path::PathBuf, process, env, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use crate::{config::{GlobalConfig, get_global}, util::open};
 use super::protocol::{respond, to_custom_protocol_path, to_package_and_path};
 
 use muda::Menu;
-use tao::{dpi::LogicalSize, event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, window::{Icon, WindowBuilder}};
+use tao::{dpi::LogicalSize, event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoopBuilder}, platform::run_return::EventLoopExtRunReturn, window::{Icon, WindowBuilder}};
 use wry::{WebContext, WebViewAttributes, WebViewBuilder};
 
 #[cfg(windows)]
@@ -169,7 +169,7 @@ impl FeltyApp {
             hook();
         }
 
-        let event_loop = EventLoopBuilder::<FeltyEvents>::with_user_event().build();
+        let mut event_loop = EventLoopBuilder::<FeltyEvents>::with_user_event().build();
 
         let proxy = event_loop.create_proxy();
         let app_handle = AppHandle { proxy: proxy.clone() };
@@ -198,6 +198,7 @@ impl FeltyApp {
 
         let window = WindowBuilder::new()
             .with_title(&self.config.name)
+            .with_visible(false)
             .with_inner_size(self.size)
             .with_resizable(self.resizable)
             .with_maximizable(self.maximizable)
@@ -270,7 +271,26 @@ impl FeltyApp {
         let release_note_url = self.config.release_note_url.clone();
         let report_url = self.config.report_url.clone();
 
-        event_loop.run(move |event, _, control_flow| {
+        let webview_pid = {
+            #[cfg(target_os = "windows")] {
+                use wry::WebViewExtWindows;
+
+                let mut pid = 0u32;
+                unsafe { let _ = webview.controller().CoreWebView2().map(|w| w.BrowserProcessId(&mut pid)); }
+
+                if pid > 0 {
+                    Some(pid as i32)
+                } else {
+                    None
+                }
+            }
+            #[cfg(not(target_os = "windows"))] {
+                None::<u32>
+            }
+        };
+
+        window.set_visible(true);
+        event_loop.run_return(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
             match event {
@@ -278,31 +298,6 @@ impl FeltyApp {
                     event: WindowEvent::CloseRequested,
                     ..
                 } => {
-                    let pid = {
-                        #[cfg(target_os = "windows")] {
-                            use wry::WebViewExtWindows;
-
-                            let mut pid = 0u32;
-                            unsafe { let _ = webview.controller().CoreWebView2().map(|w| w.BrowserProcessId(&mut pid)); }
-
-                            if pid > 0 {
-                                Some(pid)
-                            } else {
-                                None
-                            }
-                        }
-                        #[cfg(not(target_os = "windows"))] {
-                            None::<u32>
-                        }
-                    };
-
-                    if let Some(pid) = pid {
-                        // NOTE: プロセスはデフォルトでデタッチ状態になる: https://github.com/rust-lang/rust/issues/31289
-                        let _ = process::Command::new(env::current_exe().unwrap())
-                            .args(["--wait-pid", &pid.to_string(), "--delete-caches-only"])
-                            .spawn();
-                    }
-
                     *control_flow = ControlFlow::Exit;
                 },
                 Event::UserEvent(user_event) => match user_event {
@@ -332,6 +327,18 @@ impl FeltyApp {
                 _ => ()
             }
         });
+
+        if let Some(pid) = webview_pid {
+            window.set_visible(false);
+
+            log::debug!("Waiting for PID {} to exit", pid);
+            if let Ok(mut handle) = waitpid_any::WaitHandle::open(pid as i32) {
+                let _ = handle.wait();
+
+                log::debug!("Cleaning caches");
+                crate::core::process_cleaning(&get_global().cache_directory);
+            }
+        }
     }
 }
 
