@@ -21,6 +21,9 @@ log = "0.4.27"
 waitpid-any = "0.3.0"
 time = { version = "0.3.43", features = ["local-offset"], default-features = false, optional = true }
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
 [build-dependencies]
 icns = "0.3.1"
 ico-builder = "0.1.1"
