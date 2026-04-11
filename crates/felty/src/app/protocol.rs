@@ -203,7 +203,7 @@ async fn respond_in_develop(request: Request<Vec<u8>>, responder: RequestAsyncRe
         // NOTE: ランタイムパッケージは Vite に転送する
         // TODO: シャルフェルトの仕様を引き継いでいるので直したい
         let mut body = Vec::new();
-        if let Ok(response) = http_req::request::get(format!("http://localhost:{}/{}/{}/{}", config.internal_dev_port, config.internal_host, config.runtime_package, path), &mut body) {
+        if let Ok(response) = http_req::request::get(format!("{}/{}", config.dev_server, path), &mut body) {
             // NOTE: ビルダーを作成し、ステータスをコピーする
             let mut builder = http::Response::builder()
                 .status::<u16>(response.status_code().into());

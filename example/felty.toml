@@ -40,8 +40,8 @@ tld = "tld"
 host = "host"
 # 内部の別パッケージのリソースにアクセスするためのパスの接頭辞
 package_prefix = "@packages/"
-# 開発環境（Vite等）の待ち受けポート番号
-dev_port = 5173
+# 開発環境（Vite等）のオリジン。最後にスラッシュを含めてはなりません。
+dev_server = "http://localhost:5173"
 # フロントエンド等のメインランタイムとなるパッケージ名
 runtime_package = "Example.Runtime.pak"
 # アセット等を提供するパッケージ名
